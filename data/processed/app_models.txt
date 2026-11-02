@@ -1,0 +1,2 @@
+short=Random Forest
+day_ahead=Random Forest

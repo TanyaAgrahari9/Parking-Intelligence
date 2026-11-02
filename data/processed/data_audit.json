@@ -1,0 +1,18 @@
+{
+  "raw_rows": 35717,
+  "raw_zones": 30,
+  "duplicates_removed": 216,
+  "zones_dropped": {
+    "BHMBRTARC01": 5,
+    "NIA North": 9
+  },
+  "negative_occupancy": 0,
+  "rate_above_capacity": 373,
+  "readings_outside_window": 21,
+  "same_slot_merged": 52,
+  "clean_rows": 35181,
+  "clean_zones": 28,
+  "grid_rows": 38808,
+  "grid_missing_pct": 9.35,
+  "anomalous_zone_days": 40
+}
