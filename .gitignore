@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+venv/
+.env
+.DS_Store
+.pytest_cache/
+.streamlit/secrets.toml
+
+# Deployed Random Forest bundles are 100-170 MB (over GitHub limit).
+# Rebuild with: bash run_all.sh   (the app uses data/processed/app_forecasts_*.csv)
+models/short_model.joblib
+models/day_ahead_model.joblib

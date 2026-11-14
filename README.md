@@ -25,7 +25,7 @@ patterns, zone clusters and faulty-sensor alerts.
 | Error analysis | `src/error_analysis.py` | Errors by time, weekday, zone, occupancy level, sensor anomaly |
 | Deployment rule fix | `src/redeploy.py` | Documents the post-hoc change of the model-selection rule (see below) |
 | Batch scoring | `src/export_forecasts.py` | Deployed models score the test period for the app |
-| App | `app/streamlit_app.py` | Find parking · Zone forecast · Admin dashboard · How it works |
+| App | `app/streamlit_app.py` | **For drivers:** Find parking · Plan your visit. **For parking staff:** Today's overview · Busy times · Busy and quiet car parks · Unusual days · Forecast accuracy. **About:** How it works |
 
 Two forecasting tasks: **1-hour-ahead** (uses today's latest readings) and
 **day-ahead** (uses only data up to the previous evening).
