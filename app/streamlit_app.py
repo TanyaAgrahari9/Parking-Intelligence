@@ -8,6 +8,8 @@ deployed models' forecasts, made using only information available at that
 moment (batch-scored by src/export_forecasts.py). Because it is a replay, the
 true occupancy can be revealed and compared with the forecast.
 """
+import hashlib
+import hmac
 import json
 import sys
 from pathlib import Path
@@ -160,6 +162,38 @@ header[data-testid="stHeader"] {{ background: rgba(11,20,22,.75); backdrop-filte
 .tip.ok {{ background: rgba(52,211,153,.08); border: 1px solid rgba(52,211,153,.3); }}
 .tip.warn {{ background: rgba(251,191,36,.08); border: 1px solid rgba(251,191,36,.3); }}
 iframe {{ border-radius: 14px; }}
+.st-key-site_footer {{ margin-top: 20px; padding: 30px 32px 18px; border-radius: 22px 22px 0 0;
+  background: linear-gradient(180deg, rgba(18,33,38,.95), rgba(11,20,22,1)); border: 1px solid {LINE}; border-bottom: 0; }}
+.st-key-site_footer [data-testid="stPageLink"] a {{ padding: 2px 0; background: transparent !important; }}
+.st-key-site_footer [data-testid="stPageLink"] a span, .st-key-site_footer [data-testid="stPageLink"] a p {{ font-weight: 400 !important; }}
+.st-key-site_footer [data-testid="stPageLink"] p {{ color: {MUTED}; font-size: .9rem; }}
+.st-key-site_footer [data-testid="stPageLink"] a:hover p {{ color: {TEAL}; }}
+.f-brand {{ display: flex; align-items: center; gap: 10px; font-family: 'Space Grotesk', 'Inter', sans-serif; font-weight: 700;
+  font-size: 1.1rem; color: {TEXT}; margin-bottom: 10px; }}
+.f-brand .logo {{ width: 32px; height: 32px; border-radius: 9px; background: {TEAL}; color: #06201D; display: inline-flex;
+  align-items: center; justify-content: center; font-weight: 800; }}
+.f-text {{ color: {MUTED}; font-size: .88rem; line-height: 1.5; }}
+.f-chip {{ display: inline-block; margin-top: 12px; padding: 4px 11px; border-radius: 999px; font-size: .76rem; font-weight: 600;
+  color: {TEAL}; background: rgba(45,212,191,.10); border: 1px solid rgba(45,212,191,.25); }}
+.f-head {{ color: {TEXT}; font-size: .8rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 8px; }}
+.f-key {{ color: {MUTED}; font-size: .86rem; padding: 3px 0; }}
+.f-key b {{ color: {TEXT}; font-weight: 600; }}
+.f-bottom {{ display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 22px; padding-top: 14px;
+  border-top: 1px solid {LINE}; color: {MUTED}; font-size: .78rem; }}
+.signin-art {{ background: linear-gradient(150deg, rgba(45,212,191,.18), rgba(18,33,38,.95) 55%, rgba(251,125,91,.12));
+  border: 1px solid {LINE}; border-radius: 22px; padding: 28px 30px; animation: rise .5s ease both; }}
+.signin-art .brand {{ display: flex; align-items: center; gap: 10px; font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-weight: 700; font-size: 1.05rem; color: {TEXT}; }}
+.signin-art .logo {{ width: 34px; height: 34px; border-radius: 10px; background: {TEAL}; color: #06201D; display: inline-flex;
+  align-items: center; justify-content: center; font-weight: 800; }}
+.signin-art h2 {{ font-size: 1.9rem; color: {TEXT}; margin: 22px 0 16px; line-height: 1.15; }}
+.signin-art ul {{ list-style: none; padding: 0; margin: 18px 0 14px; }}
+.signin-art li {{ color: {TEXT}; padding: 7px 0 7px 30px; position: relative; font-size: .98rem; }}
+.signin-art li::before {{ content: "✓"; position: absolute; left: 0; top: 6px; width: 20px; height: 20px; border-radius: 50%;
+  background: rgba(45,212,191,.18); color: {TEAL}; font-size: .75rem; font-weight: 800; display: flex; align-items: center; justify-content: center; }}
+.signin-art .small {{ color: {MUTED}; font-size: .8rem; margin-top: 8px; }}
+.demo {{ margin-top: 14px; padding: 11px 14px; border-radius: 12px; background: rgba(96,165,250,.08);
+  border: 1px dashed rgba(96,165,250,.35); color: {TEXT}; font-size: .88rem; text-align: center; }}
 .alert {{ display: flex; justify-content: space-between; gap: 12px; padding: 11px 14px; margin-bottom: 8px; border-radius: 12px;
   background: rgba(248,113,113,.08); border: 1px solid rgba(248,113,113,.3); color: {TEXT}; font-size: .92rem; animation: rise .4s ease both; }}
 .alert.ok {{ background: rgba(52,211,153,.07); border-color: rgba(52,211,153,.28); }}
@@ -408,9 +442,9 @@ function show(i) {
     u.style.left = r === null ? '-10px' : `calc(${Math.min(100, r * 100)}% - 1px)`;
     tween(el.querySelector('.v'), shown[k], f); shown[k] = f; });
   const hidden = live.slice(D.limit).concat(D.zones.map((z, k) => k).filter(k => D.zones[k].p[i] === null));
-  hidden.forEach(k => { tiles[k].style.opacity = 0; tiles[k].style.pointerEvents = 'none'; });
+  hidden.forEach(k => { tiles[k].style.opacity = 0; tiles[k].style.pointerEvents = 'none'; tiles[k].style.transform = 'translate(0px, 0px)'; });
   live.slice(0, D.limit).forEach(k => { tiles[k].style.pointerEvents = 'auto'; });
-  layout(live.slice(0, D.limit).concat(hidden));
+  layout(live.slice(0, D.limit));
   grid.style.height = Math.ceil(Math.min(D.limit, live.length) / (grid.clientWidth >= 600 ? Math.floor((grid.clientWidth + 12) / 212) : 2)) * 124 + 'px';
   document.getElementById('sum').innerHTML = `<span><b>${tot.toLocaleString()}</b> free spaces in all car parks<span class="mode"> (${D.mode})</span></span>` +
     [0, 1, 2].map(s => `<span><span class="dot" style="background:${COL[s]}"></span><b>${cnt[s]}</b> ${WORD[s].slice(2).toLowerCase()}</span>`).join('');
@@ -433,7 +467,9 @@ show(idx);
 
 # ----------------------------------------------------------------------------- page 1: find parking
 def page_find_parking():
-    hero("Replaying real days from December 2016", "Where should I park?",
+    who = st.session_state.get("user") if st.session_state.get("role") == "driver" else None
+    hero(f"Welcome back, {who.title()} · replaying real days from December 2016" if who else
+         "Replaying real days from December 2016", "Where should I park?",
          "Choose when you are arriving. We show you the car park most likely to have a free space.")
     fa = forecast_frame("day_ahead")
     dates = sorted(fa.date.dt.date.unique())
@@ -485,8 +521,15 @@ def page_find_parking():
     with st.container(border=True):
         names = {nice(z): z for z in sorted(sel.zone, key=lambda z: (not nice(z).startswith("Car Park"),
                                                                        int(nice(z).split()[-1]) if nice(z).startswith("Car Park") else 0, nice(z)))}
-        pick = st.selectbox("Going to a particular car park?", ["No, any car park is fine"] + list(names),
+        options = ["No, any car park is fine"] + list(names)
+        fav = st.session_state.get("fav_car_park")
+        signed_driver = st.session_state.get("role") == "driver"
+        pick = st.selectbox("Your usual car park (remembered while you are signed in)" if signed_driver
+                            else "Going to a particular car park?", options,
+                            index=options.index(fav) if signed_driver and fav in options else 0,
                             help="We will tell you how full it will be, and suggest a better one if it is busy.")
+        if signed_driver:
+            st.session_state["fav_car_park"] = pick
         if pick != "No, any car park is fine":
             r = sel[sel.zone == names[pick]].iloc[0]
             sid = int(r.status_id)
@@ -810,23 +853,166 @@ def page_explain():
                 unsafe_allow_html=True)
 
 
+# ----------------------------------------------------------------------------- sign in (drivers optional, staff required)
+# Drivers can always continue as a guest; signing in remembers their usual car park.
+# Staff pages need a staff account. Passwords are stored as salted SHA-256 hashes, never as plain text.
+# A real deployment would set its own accounts in Streamlit "secrets":
+#   [accounts]  name = ["<sha256 of salt+password>", "driver" | "staff"]
+SALT = "parking-intelligence"
+DEMO = {"driver": ("drive2026", "driver"), "staff": ("parking2026", "staff")}
+
+
+def _hash(password):
+    return hashlib.sha256((SALT + password).encode()).hexdigest()
+
+
+def accounts():
+    try:
+        acc = {k.lower(): tuple(v) for k, v in dict(st.secrets["accounts"]).items()}
+        if acc:
+            return acc
+    except Exception:
+        pass
+    return {u: (_hash(pw), role) for u, (pw, role) in DEMO.items()}
+
+
+ROLE_TEXT = {
+    "Driver": ("Find a free space before you arrive",
+               ["See the best car park for your arrival time", "Your usual car park is checked for you",
+                "Get a better option when it's going to be full"]),
+    "Parking staff": ("Manage parking with confidence",
+                      ["See which car parks will be full, and where to send drivers",
+                       "Busy times, car park groups and unusual sensor readings",
+                       "Check how accurate the forecasts are"]),
+}
+SIGNIN_ART = """<svg viewBox="0 0 300 120" width="100%" height="120" aria-hidden="true">
+<rect x="0" y="0" width="300" height="120" rx="14" fill="rgba(255,255,255,.04)"/>
+<g stroke="rgba(255,255,255,.18)" stroke-width="2">
+<line x1="30" y1="20" x2="30" y2="100"/><line x1="78" y1="20" x2="78" y2="100"/><line x1="126" y1="20" x2="126" y2="100"/>
+<line x1="174" y1="20" x2="174" y2="100"/><line x1="222" y1="20" x2="222" y2="100"/><line x1="270" y1="20" x2="270" y2="100"/></g>
+<rect x="38" y="34" width="32" height="54" rx="8" fill="#F87171"/><rect x="86" y="34" width="32" height="54" rx="8" fill="#FBBF24"/>
+<rect x="182" y="34" width="32" height="54" rx="8" fill="#F87171"/><rect x="230" y="34" width="32" height="54" rx="8" fill="#FBBF24"/>
+<rect x="134" y="28" width="32" height="64" rx="8" fill="none" stroke="#2DD4BF" stroke-width="2.5" stroke-dasharray="6 5"/>
+<text x="150" y="66" text-anchor="middle" font-family="Inter, sans-serif" font-size="22" font-weight="700" fill="#2DD4BF">P</text>
+</svg>"""
+
+
+def page_sign_in(default_role="Driver"):
+    left, right = st.columns([1, 1.05], gap="large")
+    with right:
+        st.markdown('<div class="label" style="margin-top:6px">Sign in as</div>', unsafe_allow_html=True)
+        role = st.segmented_control("Sign in as", ["Driver", "Parking staff"], default=default_role,
+                                    key=f"signin_role_{default_role}", label_visibility="collapsed") or default_role
+        with st.form(f"signin_{default_role}", border=False):
+            user = st.text_input("Username", placeholder="driver" if role == "Driver" else "staff")
+            password = st.text_input("Password", type="password", placeholder="Your password")
+            ok = st.form_submit_button("Sign in", type="primary", width="stretch")
+        if ok:
+            u = user.strip().lower()
+            acc = accounts().get(u)
+            want = "driver" if role == "Driver" else "staff"
+            if acc and hmac.compare_digest(acc[0], _hash(password)) and acc[1] == want:
+                st.session_state.update(user=u, role=want, go_after_login=want)
+                st.rerun()
+            elif acc and hmac.compare_digest(acc[0], _hash(password)):
+                st.error(f"This is a {acc[1]} account. Choose \"{'Driver' if acc[1] == 'driver' else 'Parking staff'}\" above.")
+            else:
+                st.error("That username or password isn't right. Please try again.")
+        if role == "Driver":
+            if st.button("Continue as guest →", width="stretch"):
+                st.session_state["go_after_login"] = "driver"
+                st.rerun()
+        demo_user = "driver" if role == "Driver" else "staff"
+        st.markdown(f'<div class="demo">Demo account · username <b>{demo_user}</b> · password <b>{DEMO[demo_user][0]}</b></div>',
+                    unsafe_allow_html=True)
+    title, points = ROLE_TEXT[role]
+    with left:
+        st.markdown(
+            '<div class="signin-art"><div class="brand"><span class="logo">P</span>Parking Intelligence</div>'
+            f'<h2>{title}</h2>' + SIGNIN_ART +
+            '<ul>' + "".join(f"<li>{p}</li>" for p in points) + '</ul>'
+            '<div class="small">Data: real car parks in Birmingham, UK (Oct–Dec 2016), used as a stand-in for a campus.</div></div>',
+            unsafe_allow_html=True)
+
+
+def page_sign_in_driver():
+    page_sign_in("Driver")
+
+
+def page_sign_out():
+    for k in ("user", "role", "fav_car_park"):
+        st.session_state.pop(k, None)
+    st.rerun()
+
+
 def staff_busy(): page_admin("busy")
 def staff_groups(): page_admin("groups")
 def staff_unusual(): page_admin("unusual")
 def staff_accuracy(): page_admin("accuracy")
 
 
-pages = {
-    "For drivers": [
-        st.Page(page_find_parking, title="Find parking", icon=":material/local_parking:", default=True),
-        st.Page(page_zone_forecast, title="Plan your visit", icon=":material/schedule:", url_path="plan")],
-    "For parking staff": [
-        st.Page(page_staff_overview, title="Today's overview", icon=":material/dashboard:", url_path="staff"),
-        st.Page(staff_busy, title="Busy times", icon=":material/local_fire_department:", url_path="busy-times"),
-        st.Page(staff_groups, title="Busy and quiet car parks", icon=":material/category:", url_path="groups"),
-        st.Page(staff_unusual, title="Unusual days", icon=":material/warning:", url_path="unusual-days"),
-        st.Page(staff_accuracy, title="Forecast accuracy", icon=":material/target:", url_path="accuracy")],
-    "About": [
-        st.Page(page_explain, title="How it works", icon=":material/lightbulb:", url_path="how-it-works")],
-}
-st.navigation(pages, position="top").run()
+# The menu depends on who is using the app:
+#   guest  -> Find parking · Plan your visit · Sign in
+#   driver -> Find parking · Plan your visit · Sign out
+#   staff  -> the five staff pages · Sign out
+# "How it works" is linked from the footer of every page instead of the menu.
+role = st.session_state.get("role")
+FIND = st.Page(page_find_parking, title="Find parking", icon=":material/local_parking:", default=role != "staff")
+PLAN = st.Page(page_zone_forecast, title="Plan your visit", icon=":material/schedule:", url_path="plan")
+HOW = st.Page(page_explain, title="How it works", icon=":material/lightbulb:", url_path="how-it-works", visibility="hidden")
+SIGN_IN = st.Page(page_sign_in_driver, title="Sign in", icon=":material/login:", url_path="sign-in")
+SIGN_OUT = st.Page(page_sign_out, title=f"Sign out ({st.session_state.get('user', '').title()})",
+                   icon=":material/logout:", url_path="sign-out")
+STAFF_PAGES = [
+    st.Page(page_staff_overview, title="Today's overview", icon=":material/dashboard:", url_path="staff", default=role == "staff"),
+    st.Page(staff_busy, title="Busy times", icon=":material/local_fire_department:", url_path="busy-times"),
+    st.Page(staff_groups, title="Car park groups", icon=":material/category:", url_path="groups"),
+    st.Page(staff_unusual, title="Unusual days", icon=":material/warning:", url_path="unusual-days"),
+    st.Page(staff_accuracy, title="Forecast accuracy", icon=":material/target:", url_path="accuracy")]
+
+if role == "staff":
+    pages = STAFF_PAGES + [SIGN_OUT, HOW]
+elif role == "driver":
+    pages = [FIND, PLAN, SIGN_OUT, HOW]
+else:
+    pages = [FIND, PLAN, SIGN_IN, HOW]
+nav = st.navigation(pages, position="top")
+after = st.session_state.pop("go_after_login", None)
+if after == "staff":
+    st.switch_page(STAFF_PAGES[0])
+elif after == "driver":
+    st.switch_page(FIND)
+nav.run()
+
+# ----------------------------------------------------------------------------- footer
+if role == "staff":
+    quick = [(p, None) for p in STAFF_PAGES[:3]]
+else:
+    quick = [(FIND, None), (PLAN, None), (SIGN_OUT if role else SIGN_IN, None)]
+with st.container(key="site_footer"):
+    c1, c2, c3, c4 = st.columns([1.5, 1, 1, 1.2], gap="large")
+    with c1:
+        st.markdown('<div class="f-brand"><span class="logo">P</span>Parking Intelligence</div>'
+                    '<div class="f-text">Predicts how full each car park will be, so drivers find a free space '
+                    'faster and parking staff can plan ahead.</div>'
+                    '<div class="f-chip">Replaying real days · 5–19 December 2016</div>', unsafe_allow_html=True)
+    with c2:
+        st.markdown('<div class="f-head">Quick links</div>', unsafe_allow_html=True)
+        for pg, _ in quick:
+            st.page_link(pg)
+    with c3:
+        st.markdown('<div class="f-head">About</div>', unsafe_allow_html=True)
+        st.page_link(HOW, label="How it works", icon=":material/lightbulb:")
+        st.page_link("https://github.com/TanyaAgrahari9/Parking-Intelligence", label="Project code", icon=":material/code:")
+        st.page_link("https://archive.ics.uci.edu/dataset/482/parking+birmingham", label="Data source (UCI)",
+                     icon=":material/database:")
+    with c4:
+        st.markdown('<div class="f-head">What the colours mean</div>'
+                    '<div class="f-key"><span class="dot" style="background:#34D399"></span><b>✓ Available</b> · under 70% full</div>'
+                    '<div class="f-key"><span class="dot" style="background:#FBBF24"></span><b>! Limited</b> · 70% to 90% full</div>'
+                    '<div class="f-key"><span class="dot" style="background:#F87171"></span><b>✕ Full</b> · 90% full or more</div>'
+                    '<div class="f-text" style="margin-top:8px">Forecasts are right about 9 times out of 10.</div>',
+                    unsafe_allow_html=True)
+    st.markdown('<div class="f-bottom"><span>© 2026 Tanya Agrahari · CSE513 Machine Learning project · '
+                'Lovely Professional University</span><span>Data: Parking Birmingham, UCI Machine Learning Repository</span></div>',
+                unsafe_allow_html=True)
