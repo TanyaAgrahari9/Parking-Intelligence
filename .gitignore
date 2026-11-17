@@ -12,3 +12,4 @@ venv/
 # Rebuild with: bash run_all.sh   (the app uses data/processed/app_forecasts_*.csv)
 models/short_model.joblib
 models/day_ahead_model.joblib
+data/users.json

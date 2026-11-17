@@ -525,15 +525,9 @@ def page_find_parking():
         names = {nice(z): z for z in sorted(sel.zone, key=lambda z: (not nice(z).startswith("Car Park"),
                                                                        int(nice(z).split()[-1]) if nice(z).startswith("Car Park") else 0, nice(z)))}
         options = ["No, any car park is fine"] + list(names)
-        fav = st.session_state.get("fav_car_park")
-        signed_driver = st.session_state.get("role") == "driver"
-        pick = st.selectbox("My usual car park" if signed_driver
-                            else "Going to a particular car park?", options,
-                            index=options.index(fav) if signed_driver and fav in options else 0,
-                            help="We will tell you how full it will be, and suggest a better one if it is busy."
-                            + (" Saved until you sign out." if signed_driver else ""))
-        if signed_driver:
-            st.session_state["fav_car_park"] = pick
+        pick = st.selectbox("Going to a particular car park?", options,
+                            help="We will tell you how full it will be, and suggest a better one if it is busy.")
+
         if pick != "No, any car park is fine":
             r = sel[sel.zone == names[pick]].iloc[0]
             sid = int(r.status_id)
@@ -870,19 +864,36 @@ def _hash(password):
     return hashlib.sha256((SALT + password).encode()).hexdigest()
 
 
-def accounts():
+USERS_FILE = ROOT / "data" / "users.json"   # accounts people create in the app (hashed passwords only)
+
+
+def _load_users():
     try:
-        acc = {k.lower(): tuple(v) for k, v in dict(st.secrets["accounts"]).items()}
-        if acc:
-            return acc
+        return {k: tuple(v) for k, v in json.loads(USERS_FILE.read_text()).items()}
+    except Exception:
+        return {}
+
+
+def accounts():
+    acc = {u: (_hash(pw), role) for u, (pw, role) in DEMO.items()}
+    try:
+        acc.update({k.lower(): tuple(v) for k, v in dict(st.secrets["accounts"]).items()})
     except Exception:
         pass
-    return {u: (_hash(pw), role) for u, (pw, role) in DEMO.items()}
+    acc.update(_load_users())
+    return acc
+
+
+def create_account(username, password, role):
+    users = _load_users()
+    users[username] = (_hash(password), role)
+    USERS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    USERS_FILE.write_text(json.dumps(users))
 
 
 ROLE_TEXT = {
     "Driver": ("Find a free space before you arrive",
-               ["See the best car park for your arrival time", "Your usual car park is checked for you",
+               ["See the best car park for your arrival time", "Check any car park, with a reason for every forecast",
                 "Get a better option when it's going to be full"]),
     "Parking staff": ("Manage parking with confidence",
                       ["See which car parks will be full, and where to send drivers",
@@ -907,28 +918,50 @@ def page_sign_in(default_role="Driver"):
         st.markdown('<div class="label" style="margin-top:6px">Sign in as</div>', unsafe_allow_html=True)
         role = st.segmented_control("Sign in as", ["Driver", "Parking staff"], default=default_role,
                                     key=f"signin_role_{default_role}", label_visibility="collapsed") or default_role
-        with st.form(f"signin_{default_role}", border=False):
-            user = st.text_input("Username", placeholder="Enter your username")
-            password = st.text_input("Password", type="password", placeholder="Enter your password")
-            ok = st.form_submit_button("Sign in", type="primary", width="stretch")
-        if ok:
-            u = user.strip().lower()
-            acc = accounts().get(u)
-            want = "driver" if role == "Driver" else "staff"
-            if acc and hmac.compare_digest(acc[0], _hash(password)) and acc[1] == want:
-                st.session_state.update(user=u, role=want, go_after_login=want)
-                st.rerun()
-            elif acc and hmac.compare_digest(acc[0], _hash(password)):
-                st.error(f"This is a {acc[1]} account. Choose \"{'Driver' if acc[1] == 'driver' else 'Parking staff'}\" above.")
-            else:
-                st.error("That username or password isn't right. Please try again.")
+        want = "driver" if role == "Driver" else "staff"
+        mode = st.segmented_control("Account", ["Sign in", "Create account"], default="Sign in",
+                                    key=f"signin_mode_{default_role}", label_visibility="collapsed") or "Sign in"
+        if mode == "Sign in":
+            with st.form(f"signin_{default_role}", border=False):
+                user = st.text_input("Username", placeholder="Enter your username")
+                password = st.text_input("Password", type="password", placeholder="Enter your password")
+                ok = st.form_submit_button("Sign in", type="primary", width="stretch")
+            if ok:
+                u = user.strip().lower()
+                acc = accounts().get(u)
+                if acc and hmac.compare_digest(acc[0], _hash(password)) and acc[1] == want:
+                    st.session_state.update(user=u, role=want, go_after_login=want)
+                    st.rerun()
+                elif acc and hmac.compare_digest(acc[0], _hash(password)):
+                    st.error(f"This is a {'driver' if acc[1] == 'driver' else 'parking staff'} account. "
+                             f"Choose \"{'Driver' if acc[1] == 'driver' else 'Parking staff'}\" above.")
+                else:
+                    st.error("That username or password isn't right. New here? Choose \"Create account\".")
+        else:
+            with st.form(f"signup_{default_role}", border=False):
+                user = st.text_input("Choose a username", placeholder="At least 3 letters or numbers")
+                password = st.text_input("Choose a password", type="password", placeholder="At least 6 characters")
+                again = st.text_input("Type the password again", type="password", placeholder="Same password")
+                ok = st.form_submit_button(f"Create {'driver' if want == 'driver' else 'staff'} account",
+                                           type="primary", width="stretch")
+            if ok:
+                u = user.strip().lower()
+                if len(u) < 3 or not u.replace("_", "").isalnum():
+                    st.error("Use at least 3 letters or numbers for the username (no spaces).")
+                elif u in accounts():
+                    st.error("That username is already taken. Please choose another one.")
+                elif len(password) < 6:
+                    st.error("The password needs at least 6 characters.")
+                elif password != again:
+                    st.error("The two passwords don't match.")
+                else:
+                    create_account(u, password, want)
+                    st.session_state.update(user=u, role=want, go_after_login=want)
+                    st.rerun()
         if role == "Driver":
             if st.button("Continue as guest →", width="stretch"):
                 st.session_state.update(role="guest", go_after_login="driver")
                 st.rerun()
-        demo_user = "driver" if role == "Driver" else "staff"
-        st.markdown(f'<div class="demo">Demo account · username <b>{demo_user}</b> · password <b>{DEMO[demo_user][0]}</b></div>',
-                    unsafe_allow_html=True)
     title, points = ROLE_TEXT[role]
     with left:
         st.markdown(
