@@ -162,6 +162,7 @@ header[data-testid="stHeader"] {{ background: rgba(11,20,22,.75); backdrop-filte
 .tip.ok {{ background: rgba(52,211,153,.08); border: 1px solid rgba(52,211,153,.3); }}
 .tip.warn {{ background: rgba(251,191,36,.08); border: 1px solid rgba(251,191,36,.3); }}
 iframe {{ border-radius: 14px; }}
+[data-testid="stHeaderActionElements"], .stMarkdown h1 a, .stMarkdown h2 a {{ display: none !important; }}
 .st-key-site_footer {{ margin-top: 20px; padding: 30px 32px 18px; border-radius: 22px 22px 0 0;
   background: linear-gradient(180deg, rgba(18,33,38,.95), rgba(11,20,22,1)); border: 1px solid {LINE}; border-bottom: 0; }}
 .st-key-site_footer [data-testid="stPageLink"] a {{ padding: 2px 0; background: transparent !important; }}
@@ -468,8 +469,10 @@ show(idx);
 # ----------------------------------------------------------------------------- page 1: find parking
 def page_find_parking():
     who = st.session_state.get("user") if st.session_state.get("role") == "driver" else None
+    guest = st.session_state.get("role") == "guest"
     hero(f"Welcome back, {who.title()} · replaying real days from December 2016" if who else
-         "Replaying real days from December 2016", "Where should I park?",
+         ("Browsing as a guest · replaying real days from December 2016" if guest else
+          "Replaying real days from December 2016"), "Where should I park?",
          "Choose when you are arriving. We show you the car park most likely to have a free space.")
     fa = forecast_frame("day_ahead")
     dates = sorted(fa.date.dt.date.unique())
@@ -524,10 +527,11 @@ def page_find_parking():
         options = ["No, any car park is fine"] + list(names)
         fav = st.session_state.get("fav_car_park")
         signed_driver = st.session_state.get("role") == "driver"
-        pick = st.selectbox("Your usual car park (remembered while you are signed in)" if signed_driver
+        pick = st.selectbox("My usual car park" if signed_driver
                             else "Going to a particular car park?", options,
                             index=options.index(fav) if signed_driver and fav in options else 0,
-                            help="We will tell you how full it will be, and suggest a better one if it is busy.")
+                            help="We will tell you how full it will be, and suggest a better one if it is busy."
+                            + (" Saved until you sign out." if signed_driver else ""))
         if signed_driver:
             st.session_state["fav_car_park"] = pick
         if pick != "No, any car park is fine":
@@ -904,8 +908,8 @@ def page_sign_in(default_role="Driver"):
         role = st.segmented_control("Sign in as", ["Driver", "Parking staff"], default=default_role,
                                     key=f"signin_role_{default_role}", label_visibility="collapsed") or default_role
         with st.form(f"signin_{default_role}", border=False):
-            user = st.text_input("Username", placeholder="driver" if role == "Driver" else "staff")
-            password = st.text_input("Password", type="password", placeholder="Your password")
+            user = st.text_input("Username", placeholder="Enter your username")
+            password = st.text_input("Password", type="password", placeholder="Enter your password")
             ok = st.form_submit_button("Sign in", type="primary", width="stretch")
         if ok:
             u = user.strip().lower()
@@ -920,7 +924,7 @@ def page_sign_in(default_role="Driver"):
                 st.error("That username or password isn't right. Please try again.")
         if role == "Driver":
             if st.button("Continue as guest →", width="stretch"):
-                st.session_state["go_after_login"] = "driver"
+                st.session_state.update(role="guest", go_after_login="driver")
                 st.rerun()
         demo_user = "driver" if role == "Driver" else "staff"
         st.markdown(f'<div class="demo">Demo account · username <b>{demo_user}</b> · password <b>{DEMO[demo_user][0]}</b></div>',
@@ -952,15 +956,16 @@ def staff_accuracy(): page_admin("accuracy")
 
 
 # The menu depends on who is using the app:
+#   nobody yet -> only the sign-in screen (choose: sign in, or continue as guest)
 #   guest  -> Find parking · Plan your visit · Sign in
 #   driver -> Find parking · Plan your visit · Sign out
 #   staff  -> the five staff pages · Sign out
 # "How it works" is linked from the footer of every page instead of the menu.
 role = st.session_state.get("role")
-FIND = st.Page(page_find_parking, title="Find parking", icon=":material/local_parking:", default=role != "staff")
+FIND = st.Page(page_find_parking, title="Find parking", icon=":material/local_parking:", default=role in ("guest", "driver"))
 PLAN = st.Page(page_zone_forecast, title="Plan your visit", icon=":material/schedule:", url_path="plan")
 HOW = st.Page(page_explain, title="How it works", icon=":material/lightbulb:", url_path="how-it-works", visibility="hidden")
-SIGN_IN = st.Page(page_sign_in_driver, title="Sign in", icon=":material/login:", url_path="sign-in")
+SIGN_IN = st.Page(page_sign_in_driver, title="Sign in", icon=":material/login:", url_path="sign-in", default=role is None)
 SIGN_OUT = st.Page(page_sign_out, title=f"Sign out ({st.session_state.get('user', '').title()})",
                    icon=":material/logout:", url_path="sign-out")
 STAFF_PAGES = [
@@ -974,9 +979,11 @@ if role == "staff":
     pages = STAFF_PAGES + [SIGN_OUT, HOW]
 elif role == "driver":
     pages = [FIND, PLAN, SIGN_OUT, HOW]
-else:
+elif role == "guest":
     pages = [FIND, PLAN, SIGN_IN, HOW]
-nav = st.navigation(pages, position="top")
+else:
+    pages = [SIGN_IN, HOW]
+nav = st.navigation(pages, position="top" if role else "hidden")
 after = st.session_state.pop("go_after_login", None)
 if after == "staff":
     st.switch_page(STAFF_PAGES[0])
@@ -987,8 +994,10 @@ nav.run()
 # ----------------------------------------------------------------------------- footer
 if role == "staff":
     quick = [(p, None) for p in STAFF_PAGES[:3]]
+elif role in ("guest", "driver"):
+    quick = [(FIND, None), (PLAN, None), (SIGN_OUT if role == "driver" else SIGN_IN, None)]
 else:
-    quick = [(FIND, None), (PLAN, None), (SIGN_OUT if role else SIGN_IN, None)]
+    quick = [(SIGN_IN, None)]
 with st.container(key="site_footer"):
     c1, c2, c3, c4 = st.columns([1.5, 1, 1, 1.2], gap="large")
     with c1:
