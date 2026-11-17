@@ -162,6 +162,18 @@ header[data-testid="stHeader"] {{ background: rgba(11,20,22,.75); backdrop-filte
 .tip.ok {{ background: rgba(52,211,153,.08); border: 1px solid rgba(52,211,153,.3); }}
 .tip.warn {{ background: rgba(251,191,36,.08); border: 1px solid rgba(251,191,36,.3); }}
 iframe {{ border-radius: 14px; }}
+.st-key-role_tabs {{ background: {CARD}; border: 1px solid {LINE}; border-radius: 14px; padding: 5px; margin-top: 8px; }}
+.st-key-role_tabs button {{ border-radius: 10px !important; border: 0 !important; min-height: 44px; }}
+.st-key-role_tabs button[kind="secondary"] {{ background: transparent !important; color: {MUTED} !important; }}
+.st-key-role_tabs button[kind="secondary"]:hover {{ color: {TEXT} !important; background: rgba(255,255,255,.04) !important; }}
+.st-key-role_tabs button[kind="primary"] {{ color: #06201D !important; font-weight: 600; }}
+.auth-title {{ font-family: 'Space Grotesk', 'Inter', sans-serif; font-size: 1.75rem; font-weight: 700; color: {TEXT}; margin: 26px 0 2px; }}
+.auth-sub {{ color: {MUTED}; font-size: .95rem; margin-bottom: 14px; }}
+.st-key-auth_switch {{ display: flex; justify-content: center; }}
+.st-key-auth_switch button {{ color: {MUTED} !important; }}
+.st-key-auth_switch button strong {{ color: {TEAL}; }}
+.or {{ display: flex; align-items: center; gap: 12px; color: {MUTED}; font-size: .8rem; margin: 2px 0 10px; }}
+.or::before, .or::after {{ content: ""; flex: 1; border-top: 1px solid {LINE}; }}
 [data-testid="stHeaderActionElements"], .stMarkdown h1 a, .stMarkdown h2 a {{ display: none !important; }}
 .st-key-site_footer {{ margin-top: 20px; padding: 30px 32px 18px; border-radius: 22px 22px 0 0;
   background: linear-gradient(180deg, rgba(18,33,38,.95), rgba(11,20,22,1)); border: 1px solid {LINE}; border-bottom: 0; }}
@@ -915,12 +927,23 @@ SIGNIN_ART = """<svg viewBox="0 0 300 120" width="100%" height="120" aria-hidden
 def page_sign_in(default_role="Driver"):
     left, right = st.columns([1, 1.05], gap="large")
     with right:
-        st.markdown('<div class="label" style="margin-top:6px">Sign in as</div>', unsafe_allow_html=True)
-        role = st.segmented_control("Sign in as", ["Driver", "Parking staff"], default=default_role,
-                                    key=f"signin_role_{default_role}", label_visibility="collapsed") or default_role
+        role = st.session_state.get("signin_role", default_role)
+        mode = st.session_state.get("signin_mode", "Sign in")
+        with st.container(key="role_tabs"):
+            t1, t2 = st.columns(2, gap="small")
+            for col, name, icon in ((t1, "Driver", ":material/directions_car:"), (t2, "Parking staff", ":material/badge:")):
+                if col.button(name, icon=icon, width="stretch", key=f"tab_{name}_{default_role}",
+                              type="primary" if role == name else "secondary"):
+                    st.session_state["signin_role"] = name
+                    st.rerun()
         want = "driver" if role == "Driver" else "staff"
-        mode = st.segmented_control("Account", ["Sign in", "Create account"], default="Sign in",
-                                    key=f"signin_mode_{default_role}", label_visibility="collapsed") or "Sign in"
+        who = "driver" if want == "driver" else "parking staff"
+        if mode == "Sign in":
+            st.markdown(f'<div class="auth-title">Welcome back</div><div class="auth-sub">Sign in to your {who} account.</div>',
+                        unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div class="auth-title">Create your account</div><div class="auth-sub">It takes a few seconds. '
+                        f'You will be signed in as {who}.</div>', unsafe_allow_html=True)
         if mode == "Sign in":
             with st.form(f"signin_{default_role}", border=False):
                 user = st.text_input("Username", placeholder="Enter your username")
@@ -934,9 +957,9 @@ def page_sign_in(default_role="Driver"):
                     st.rerun()
                 elif acc and hmac.compare_digest(acc[0], _hash(password)):
                     st.error(f"This is a {'driver' if acc[1] == 'driver' else 'parking staff'} account. "
-                             f"Choose \"{'Driver' if acc[1] == 'driver' else 'Parking staff'}\" above.")
+                             f"Choose \"{'Driver' if acc[1] == 'driver' else 'Parking staff'}\" at the top.")
                 else:
-                    st.error("That username or password isn't right. New here? Choose \"Create account\".")
+                    st.error("That username or password isn't right. New here? Create an account below.")
         else:
             with st.form(f"signup_{default_role}", border=False):
                 user = st.text_input("Choose a username", placeholder="At least 3 letters or numbers")
@@ -958,7 +981,17 @@ def page_sign_in(default_role="Driver"):
                     create_account(u, password, want)
                     st.session_state.update(user=u, role=want, go_after_login=want)
                     st.rerun()
+        with st.container(key="auth_switch"):
+            if mode == "Sign in":
+                if st.button("New here? **Create an account**", type="tertiary", key=f"to_signup_{default_role}"):
+                    st.session_state["signin_mode"] = "Create account"
+                    st.rerun()
+            else:
+                if st.button("Already have an account? **Sign in**", type="tertiary", key=f"to_signin_{default_role}"):
+                    st.session_state["signin_mode"] = "Sign in"
+                    st.rerun()
         if role == "Driver":
+            st.markdown('<div class="or"><span>or</span></div>', unsafe_allow_html=True)
             if st.button("Continue as guest →", width="stretch"):
                 st.session_state.update(role="guest", go_after_login="driver")
                 st.rerun()
@@ -977,7 +1010,7 @@ def page_sign_in_driver():
 
 
 def page_sign_out():
-    for k in ("user", "role", "fav_car_park"):
+    for k in ("user", "role", "fav_car_park", "signin_mode"):
         st.session_state.pop(k, None)
     st.rerun()
 
