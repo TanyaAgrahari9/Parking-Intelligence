@@ -174,6 +174,11 @@ iframe {{ border-radius: 14px; }}
 .st-key-auth_switch button strong {{ color: {TEAL}; }}
 .or {{ display: flex; align-items: center; gap: 12px; color: {MUTED}; font-size: .8rem; margin: 2px 0 10px; }}
 .or::before, .or::after {{ content: ""; flex: 1; border-top: 1px solid {LINE}; }}
+@media (max-width: 700px) {{
+  .st-key-role_tabs [data-testid="stHorizontalBlock"] {{ flex-wrap: nowrap !important; gap: 6px; }}
+  .st-key-role_tabs [data-testid="stColumn"] {{ min-width: 0 !important; width: 50% !important; flex: 1 1 50% !important; }}
+  .signin-art {{ display: none; }}
+}}
 [data-testid="stHeaderActionElements"], .stMarkdown h1 a, .stMarkdown h2 a {{ display: none !important; }}
 .st-key-site_footer {{ margin-top: 20px; padding: 30px 32px 18px; border-radius: 22px 22px 0 0;
   background: linear-gradient(180deg, rgba(18,33,38,.95), rgba(11,20,22,1)); border: 1px solid {LINE}; border-bottom: 0; }}
@@ -635,7 +640,7 @@ def day_chart(d, s, reveal):
 # ----------------------------------------------------------------------------- page 3: staff dashboard
 STAFF_HEROES = {
     "busy": ("Busy times", "When parking is busiest: across all car parks, and for each car park on a normal weekday."),
-    "groups": ("Busy and quiet car parks", "The computer sorted the car parks into two groups by how their days look, without being told the answer."),
+    "groups": ("Car park groups: busy and quiet", "The computer sorted the car parks into two groups by how their days look, without being told the answer."),
     "unusual": ("Unusual days", "Days that looked strange, flagged automatically so staff can check the sensors or the car park."),
     "accuracy": ("How accurate are the forecasts?", "Measured on the December days the computer had never seen."),
 }
@@ -942,8 +947,8 @@ def page_sign_in(default_role="Driver"):
             st.markdown(f'<div class="auth-title">Welcome back</div><div class="auth-sub">Sign in to your {who} account.</div>',
                         unsafe_allow_html=True)
         else:
-            st.markdown(f'<div class="auth-title">Create your account</div><div class="auth-sub">It takes a few seconds. '
-                        f'You will be signed in as {who}.</div>', unsafe_allow_html=True)
+            st.markdown('<div class="auth-title">Create your account</div><div class="auth-sub">&nbsp;</div>',
+                        unsafe_allow_html=True)
         if mode == "Sign in":
             with st.form(f"signin_{default_role}", border=False):
                 user = st.text_input("Username", placeholder="Enter your username")
